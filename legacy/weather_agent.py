@@ -3,7 +3,7 @@
 
 from agno.agent import Agent, RunOutput
 from agno.models.groq import Groq
-from weather_tool import WeatherTools
+from tools.weather_tool import WeatherTools
 from agno.utils.pprint import pprint_run_response
 from dotenv import load_dotenv
 

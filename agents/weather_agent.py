@@ -1,6 +1,6 @@
 from agno.agent import Agent
 from agno.models.groq import Groq
-from weather_tool import WeatherTools
+from tools.weather_tool import WeatherTools
 from agents.base_agent import BaseAgent
 from utils.config import Settings
 from utils.telemetry import TelemetryCollector
