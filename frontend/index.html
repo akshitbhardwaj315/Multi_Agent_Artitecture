@@ -1,0 +1,44 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Multi-Agent System</title>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link href="https://fonts.googleapis.com/css2?family=Inter:wght@400;500;600&family=IBM+Plex+Mono:wght@400;500&display=swap" rel="stylesheet">
+    <link rel="stylesheet" href="style.css">
+    <script src="https://cdn.jsdelivr.net/npm/marked/marked.min.js"></script>
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🤖 Multi-Agent System</h1>
+            <p>Powered by Agno + Groq</p>
+        </header>
+
+        <div id="hitl-banner" class="hitl-banner hidden">
+            <div class="hitl-content">
+                <span class="hitl-icon">⚠️</span>
+                <span class="hitl-text">Human Review Needed</span>
+                <input type="text" id="hitl-input" placeholder="Enter correction or press Confirm..." />
+                <button id="hitl-confirm">✓ Confirm</button>
+                <button id="hitl-correct">✎ Correct</button>
+            </div>
+        </div>
+
+        <div id="chat-list" class="chat-list"></div>
+
+        <div id="typing-indicator" class="typing-indicator hidden">
+            <span></span><span></span><span></span>
+        </div>
+
+        <div class="input-bar">
+            <input type="text" id="user-input" placeholder="Ask about weather, HackerNews, or anything..." />
+            <button id="send-button">Send</button>
+        </div>
+    </div>
+
+    <script src="app.js"></script>
+</body>
+</html>
