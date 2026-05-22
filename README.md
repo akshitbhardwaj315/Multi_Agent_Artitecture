@@ -21,6 +21,7 @@ A sophisticated, localized multi-agent system built with **LangGraph**, **FastAP
 
 ### 1. Prerequisites
 - Python 3.12 or higher.
+- [uv](https://github.com/astral-sh/uv) (The script will automatically install it if missing).
 - A Groq API Key.
 
 ### 2. Configure Environment
@@ -31,7 +32,7 @@ cp .env.example .env
 ```
 
 ### 3. Run the Application
-The consolidated scripts handle venv creation, dependency installation, indexing, and starting both servers:
+The consolidated scripts handle venv creation (via `uv`), dependency installation, indexing, and starting both servers:
 
 **For Linux/macOS:**
 ```bash

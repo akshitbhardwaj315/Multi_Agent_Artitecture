@@ -10,30 +10,28 @@ SERVER_HOST=${SERVER_HOST:-"0.0.0.0"}
 MAIN_PORT=${MAIN_PORT:-8000}
 MOCK_PORT=${MOCK_PORT:-8001}
 
-echo "🚀 Starting Multi-Agent Architecture..."
+echo "🚀 Starting Multi-Agent Architecture (UV + Python 3.12)..."
 
-# 1. Ensure Python 3.12+
-if ! command -v python3 &> /dev/null; then
-  echo "❌ Error: python3 is not installed."
-  exit 1
+# 1. Install uv if missing (checks local bin too)
+export PATH="$HOME/.local/bin:$PATH"
+if ! command -v uv &> /dev/null; then
+  echo "📥 uv not found. Installing uv..."
+  curl -LsSf https://astral.sh/uv/install.sh | sh
 fi
 
-# 2. Virtual Environment Setup
-if [ ! -d ".venv" ] || [ ! -f ".venv/bin/pip" ]; then
-  echo "📦 Creating virtual environment..."
-  rm -rf .venv
-  python3 -m venv .venv
+# 2. Virtual Environment Setup with UV
+if [ ! -d ".venv" ]; then
+  echo "📦 Creating virtual environment (Python 3.12)..."
+  uv venv --python 3.12
 fi
 
-# Use explicit paths to binaries within the venv to avoid PEP 668 issues
-PIP=".venv/bin/pip"
+# Use explicit paths to binaries inside the venv
 PYTHON=".venv/bin/python3"
 UVICORN=".venv/bin/uvicorn"
 
-# 3. Dependency Installation
-echo "📥 Installing dependencies..."
-$PIP install --upgrade pip
-$PIP install -r requirements.txt
+# 3. Dependency Installation with UV
+echo "📥 Installing dependencies with uv..."
+uv pip install -r requirements.txt
 
 # 4. Data Initialization
 mkdir -p data
