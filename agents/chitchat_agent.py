@@ -1,59 +1,40 @@
-from agno.agent import Agent
-from agno.models.groq import Groq
-from agents.base_agent import BaseAgent
-from utils.config import Settings
-from utils.telemetry import TelemetryCollector
-from schemas.agent import AgentResponse
-from utils.logger import get_logger
+"""
+Chitchat fallback agent.
+"""
+from langchain_core.messages import SystemMessage, HumanMessage
+from langchain_groq import ChatGroq
+from graph.state import AgentState
+from utils.config import settings
+from utils.retry import llm_retry
 
-logger = get_logger(__name__)
-
-MODEL_ID = "llama-3.1-8b-instant"
-
-SYSTEM_PROMPT = """You are a warm, friendly, and helpful assistant. Be conversational and natural.
-
-Key behaviors:
-- Greetings: Respond warmly. "hey wassup" → "Hey! Not much, just here to help. What's on your mind?"
-- Random text: Respond playfully. "hullululu" → "Haha, I like the energy! What can I help you with?"
-- Casual questions: Be friendly and brief. "how are you" → "Doing great, thanks for asking! How about you?"
-- Unclear requests: Ask kindly. "I didn't quite catch that — what would you like to know?"
-- Use conversation history to remember what was discussed earlier
-- Keep responses under 50 words for greetings/casual chat, longer for real questions
-- Match the user's vibe — casual if they're casual, helpful if they need something"""
-
-
-class ChitChatAgent(BaseAgent):
-    def __init__(self, settings: Settings):
-        super().__init__(settings)
-        self.agent = Agent(
-            id="chitchat-agent",
-            model=Groq(id=MODEL_ID),
-            name="ChitChat Agent",
-            instructions=SYSTEM_PROMPT,
-            markdown=True,
-        )
+@llm_retry()
+def chitchat_agent(state: AgentState):
+    """Direct LLM chat with simple history."""
+    query = state.get("query", "")
+    messages_history = state.get("messages", [])
     
-    def run(self, query: str, telemetry: TelemetryCollector, history: list[dict] = []) -> AgentResponse:
-        telemetry.set_agent("ChitChatAgent", MODEL_ID)
-        
-        context = self._build_context(query, history)
-        
-        response = self._time_llm_call(
-            lambda: self.agent.run(context, stream=False),
-            telemetry
-        )
-        
-        answer = response.content if hasattr(response, 'content') else str(response)
-        token_count = self._extract_tokens(response)
-        telemetry.token_count = token_count
-        
-        logger.info(
-            f"[ChitChatAgent] LLM call completed in {telemetry.llm_response_time_ms:.0f}ms | "
-            f"model={MODEL_ID} | tokens={token_count or 'N/A'}"
-        )
-        
-        return AgentResponse(
-            answer=answer,
-            token_count=token_count,
-            agent_name="ChitChatAgent"
-        )
+    llm = ChatGroq(
+        model=settings.llm_fast_model,
+        temperature=0.7,
+        api_key=settings.groq_api_key
+    )
+    
+    system_prompt = (
+        "You are a sophisticated, friendly, and highly intelligent AI assistant. "
+        "Your goal is to provide helpful, clear, and well-reasoned responses. "
+        "When appropriate, explain your reasoning or provide context to help the user understand. "
+        "Maintain a professional yet approachable tone."
+    )
+    
+    sys_msg = SystemMessage(content=system_prompt)
+    
+    recent = messages_history[-10:] if messages_history else []
+    
+    messages = [sys_msg] + recent
+    
+    if not recent or getattr(recent[-1], "content", None) != query:
+        messages.append(HumanMessage(content=query))
+    
+    response = llm.invoke(messages)
+    
+    return {"answer": response.content}

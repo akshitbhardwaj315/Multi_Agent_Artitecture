@@ -1,35 +1,15 @@
-import uuid
-from pydantic import BaseModel, field_validator
-from schemas.telemetry import TelemetryData
-
+from pydantic import BaseModel, Field
+from uuid import uuid4
 
 class ChatRequest(BaseModel):
-    query: str
-    session_id: str = ""
-    
-    @field_validator('query')
-    @classmethod
-    def validate_query(cls, v: str) -> str:
-        v = v.strip()
-        if not v:
-            raise ValueError("Query cannot be empty")
-        if len(v) > 500:
-            raise ValueError("Query too long (max 500 characters)")
-        return v
-    
-    @field_validator('session_id')
-    @classmethod
-    def validate_session_id(cls, v: str) -> str:
-        if not v:
-            return str(uuid.uuid4())
-        try:
-            uuid.UUID(v)
-            return v
-        except ValueError:
-            return str(uuid.uuid4())
-
+    message: str = Field(..., min_length=1, max_length=2000)
+    thread_id: str = Field(default_factory=lambda: str(uuid4()))
+    stream: bool = True
 
 class ChatResponse(BaseModel):
+    thread_id: str
     answer: str
-    agent_name: str
-    telemetry: TelemetryData
+    intent: str
+    confidence: float
+    hitl_required: bool
+    hitl_question: str | None = None

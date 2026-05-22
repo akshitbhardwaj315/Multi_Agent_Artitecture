@@ -1,41 +1,63 @@
+"""
+HITL resume endpoint logic.
+"""
 from fastapi import APIRouter, HTTPException
-from schemas.hitl import HITLRequest, HITLResponse
-from schemas.telemetry import TelemetryData
-from utils.config import settings
-from utils.telemetry import TelemetryCollector
-from utils.logger import get_logger
-from agents.master_agent import MasterAgent
+from sse_starlette.sse import EventSourceResponse
+import json
+import asyncio
+from graph.workflow import get_graph
+from schemas.hitl import HITLResumeRequest
+from utils.hitl_store import load_hitl_session, delete_hitl_session, save_hitl_session
+from langchain_core.messages import HumanMessage
 
-logger = get_logger(__name__)
 router = APIRouter()
-master_agent = MasterAgent(settings)
 
-_hitl_sessions: dict[str, dict] = {}
-
-
-@router.post("/hitl/respond", response_model=HITLResponse)
-async def hitl_respond(request: HITLRequest):
-    if request.session_id not in _hitl_sessions:
-        raise HTTPException(status_code=404, detail="Session not found")
+@router.post("/hitl/resume")
+async def hitl_resume(request: HITLResumeRequest):
+    session = load_hitl_session(request.thread_id)
+    if not session:
+        raise HTTPException(status_code=404, detail="Session not found or expired")
+        
+    state = session
     
-    session = _hitl_sessions[request.session_id]
-    original_query = session.get("query", "")
+    state["query"] = request.user_clarification
+    state["hitl_required"] = False
+    state["messages"] = [HumanMessage(content=request.user_clarification)]
     
-    telemetry = TelemetryCollector()
-    telemetry.start()
-    telemetry.resolve_hitl()
+    config = {"configurable": {"thread_id": request.thread_id}}
     
-    if request.action == "correct" and request.correction:
-        corrected_query = f"User correction: {request.correction}. Original query: {original_query}"
-        response = master_agent.run(corrected_query, telemetry)
-    else:
-        response = master_agent.run(original_query, telemetry)
+    graph = await get_graph()
+    final_state = await graph.ainvoke(state, config)
     
-    telemetry.stop()
+    delete_hitl_session(request.thread_id)
     
-    del _hitl_sessions[request.session_id]
-    
-    return HITLResponse(
-        answer=response.answer,
-        telemetry=TelemetryData(**telemetry.to_dict())
-    )
+    async def event_generator():
+        answer = final_state.get("answer", "")
+        # Split into words while preserving spaces so tokens
+        # render correctly in the frontend without merging together
+        import re
+        tokens = re.findall(r'\S+|\s+', answer)
+        
+        for token in tokens:
+            yield {"event": "token", "data": json.dumps(token)}
+            await asyncio.sleep(0.015)
+            
+        meta_data = {
+            "intent": final_state.get("intent", ""),
+            "confidence": final_state.get("confidence", 0.0),
+            "hitl_required": final_state.get("hitl_required", False),
+            "sources": final_state.get("retrieved_docs", [])
+        }
+        yield {"event": "meta", "data": json.dumps(meta_data)}
+        
+        if final_state.get("hitl_required"):
+            save_hitl_session(
+                request.thread_id,
+                final_state.get("hitl_question"),
+                final_state
+            )
+            yield {"event": "hitl", "data": final_state.get("hitl_question")}
+            
+        yield {"event": "done", "data": "[DONE]"}
+        
+    return EventSourceResponse(event_generator())

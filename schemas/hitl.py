@@ -1,13 +1,5 @@
-from pydantic import BaseModel
-from schemas.telemetry import TelemetryData
+from pydantic import BaseModel, Field
 
-
-class HITLRequest(BaseModel):
-    session_id: str
-    action: str
-    correction: str | None = None
-
-
-class HITLResponse(BaseModel):
-    answer: str
-    telemetry: TelemetryData
+class HITLResumeRequest(BaseModel):
+    thread_id: str
+    user_clarification: str = Field(..., min_length=1)

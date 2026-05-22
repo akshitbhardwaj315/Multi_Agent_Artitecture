@@ -1,6 +1,0 @@
-@echo off
-echo Starting Mock Weather API on :8001...
-start "Mock API" uvicorn api.server:app --port 8001 --reload
-timeout /t 2 /nobreak >nul
-echo Starting Main App on :8000...
-uvicorn app:app --port 8000 --reload

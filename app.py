@@ -1,21 +1,31 @@
+"""
+Main FastAPI entrypoint for the localized multi-agent stack.
+"""
 from fastapi import FastAPI
-from fastapi.middleware.cors import CORSMiddleware
 from fastapi.staticfiles import StaticFiles
+from fastapi.middleware.cors import CORSMiddleware
+import os
+
+from routes.chat import router as chat_router
+from routes.hitl import router as hitl_router
+from utils.config import settings
+
 from contextlib import asynccontextmanager
-from routes import chat, hitl, health
-from utils.logger import get_logger
-import uvicorn
-
-logger = get_logger(__name__)
-
 
 @asynccontextmanager
 async def lifespan(app: FastAPI):
-    logger.info("🚀 Multi-Agent System started")
+    # Startup: Ensure directories exist
+    os.makedirs("data", exist_ok=True)
+    if not os.path.exists(settings.bm25_index_path):
+        print("⚠  RAG indices not found. Run indexing script if needed.")
     yield
+    # Shutdown: Clean up resources if any
 
-
-app = FastAPI(title="Multi-Agent System API", lifespan=lifespan)
+app = FastAPI(
+    title="Multi-Agent RAG", 
+    version="1.0.0",
+    lifespan=lifespan
+)
 
 app.add_middleware(
     CORSMiddleware,
@@ -25,12 +35,13 @@ app.add_middleware(
     allow_headers=["*"],
 )
 
-app.include_router(chat.router, tags=["Chat"])
-app.include_router(hitl.router, tags=["HITL"])
-app.include_router(health.router, tags=["Health"])
+# ── API routes
+app.include_router(chat_router)
+app.include_router(hitl_router)
 
-app.mount("/frontend", StaticFiles(directory="frontend", html=True), name="frontend")
+@app.get("/health")
+def health_check():
+    return {"status": "ok", "environment": settings.environment}
 
-
-if __name__ == "__main__":
-    uvicorn.run(app, host="0.0.0.0", port=8000)
+# ── Static files LAST
+app.mount("/", StaticFiles(directory="frontend", html=True), name="frontend")
